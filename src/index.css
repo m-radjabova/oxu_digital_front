@@ -1,0 +1,342 @@
+@import "tailwindcss";
+@import "./styles/theme-palette.css";
+
+/*
+ * Kunduzgi / tungi rejim
+ * ---------------------
+ * Tungi rejimda rang o'zgaruvchilarining o'zi almashadi (styles/theme-palette.css),
+ * shuning uchun yangi bo'limlar odatdagi klasslar bilan yozilsa avtomatik moslashadi:
+ *   - kartalar, inputlar, modallar foni:   bg-surface   (bg-white EMAS)
+ *   - sahifa foni:                          bg-canvas
+ *   - matn / ramka / yumshoq fonlar:        slate-*  (text-slate-900, border-slate-200, bg-slate-50 ...)
+ *   - holat ranglari:                       bg-rose-50 + text-rose-700, bg-emerald-50 + text-emerald-700 ...
+ *   - rangli fondagi oq matn/ikonka:        text-white, bg-white/15 (o'zgarmaydi)
+ *   - soyalar:                              shadow-card, shadow-card-hover, shadow-pop
+ *   - inline style / SVG ranglari:          var(--color-slate-200), var(--color-surface) (#e2e8f0, white EMAS)
+ * Har doim to'q brend fonda turadigan bloklarga (sidebar, header, hero, rangli kartalar)
+ * `theme-fixed` qo'shiladi; ularning ichidagi oddiy oq panel (dropdown) — `theme-adaptive`.
+ * Alohida holatlar uchun `dark:` varianti ham bor (masalan, dark:hover:bg-brand-400:
+ * tungi rejimda *-700 och tusga aylanadi, shuning uchun to'q tugmalar hover'i 400 bo'ladi).
+ * Mavzu holati: useTheme() → { theme, preference, setPreference, toggleTheme }.
+ * Tungi ranglarni sozlash: scripts/generate-theme-palette.mjs → npm run theme:palette.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+.filter-select .filter-control {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 2.875rem;
+  margin: 0;
+  padding: 0 2.25rem 0 3rem;
+  border: 1px solid var(--color-slate-200);
+  border-radius: 0.75rem;
+  background: linear-gradient(120deg, var(--color-surface), var(--color-slate-50));
+  color: var(--color-slate-700);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+  box-shadow: 0 1px 2px var(--shadow-ink-faint);
+  transition: border-color .18s, box-shadow .18s;
+}
+.filter-select .filter-control option {
+  background: var(--color-surface);
+  color: var(--color-slate-800);
+}
+.filter-select[data-active="true"] .filter-control {
+  border-color: var(--color-brand-300);
+  color: var(--color-brand-800);
+}
+.filter-select:focus-within .filter-control,
+.filter-select:hover .filter-control:not(:disabled) {
+  border-color: var(--color-brand-400);
+}
+.filter-select:focus-within .filter-control {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-brand-100);
+}
+.filter-select[data-disabled="true"] { opacity: .55; }
+.filter-select .filter-control:disabled { cursor: not-allowed; }
+.filter-search {
+  border-color: var(--color-slate-200);
+  background: linear-gradient(120deg, var(--color-surface), var(--color-slate-50));
+  box-shadow: 0 1px 2px var(--shadow-ink-faint);
+}
+.filter-search:hover { border-color: var(--color-brand-300); }
+.filter-search:focus {
+  border-color: var(--color-brand-400);
+  box-shadow: 0 0 0 3px var(--color-brand-100);
+}
+
+/* Wide subject editor: keep the passport beside workload and group selection. */
+.subject-editor form > div:first-child {
+  display: grid;
+  align-content: start;
+  align-items: start;
+  gap: 1rem;
+}
+.subject-editor form > div:first-child > section {
+  margin-block: 0;
+  min-width: 0;
+}
+.subject-editor input,
+.subject-editor select {
+  height: 2.5rem;
+}
+.subject-editor textarea {
+  padding-block: 0.5rem;
+}
+@media (min-width: 1024px) {
+  .subject-editor form > div:first-child {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+  .subject-editor form > div:first-child > section:first-child {
+    grid-row: span 2;
+  }
+  .subject-editor form > div:first-child > section:first-child > .grid {
+    gap: 0.75rem 1rem;
+    margin-top: 1rem;
+  }
+}
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-canvas: #f3f4fa;
+  --color-surface: #ffffff;
+  --color-action-primary: #6a3ce0;
+  --color-action-primary-hover: #582cc0;
+  --color-action-danger: #e11d48;
+  --color-action-danger-hover: #be123c;
+  --color-action-success: #059669;
+  --color-action-success-hover: #047857;
+
+  --color-brand-50: #f4f2ff;
+  --color-brand-100: #ebe7ff;
+  --color-brand-200: #d9d1ff;
+  --color-brand-300: #bfaeff;
+  --color-brand-400: #9d82ff;
+  --color-brand-500: #7f5af5;
+  --color-brand-600: #6a3ce0;
+  --color-brand-700: #582cc0;
+  --color-brand-800: #49279c;
+  --color-brand-900: #3d247d;
+
+  /* Soya ranglari tungi rejimda quyuqlashadi (--shadow-ink-*: theme-palette.css) */
+  --shadow-card: 0 1px 2px var(--shadow-ink-faint), 0 10px 30px -18px var(--shadow-ink-soft);
+  --shadow-card-hover: 0 2px 4px var(--shadow-ink-faint), 0 18px 40px -22px var(--shadow-ink-medium);
+  --shadow-pop: 0 24px 60px -20px var(--shadow-ink-strong);
+  --shadow-glow: 0 10px 30px -12px rgb(106 60 224 / 0.55);
+
+  --animate-fade-in: fade-in 0.3s ease-out both;
+  --animate-slide-up: slide-up 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-scale-in: scale-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-slide-in-right: slide-in-right 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-toast-in: toast-in 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-pulse-ring: pulse-ring 2.4s ease-out infinite;
+  --animate-progress-bar: progress-bar 1.2s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.7s linear infinite;
+  --animate-toast-countdown: toast-countdown linear forwards;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.9); opacity: 0.55; }
+  70% { transform: scale(1.35); opacity: 0; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+@keyframes progress-bar {
+  0% { transform: translateX(-100%); }
+  55% { transform: translateX(0); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
+@keyframes toast-countdown {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-slate-800 antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--color-brand-200);
+    color: var(--color-brand-900);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(148 163 184 / 0.45) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-color: rgb(148 163 184 / 0.45);
+    background-clip: content-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(100 116 139 / 0.6);
+    background-clip: content-box;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  input[type="color"] {
+    -webkit-appearance: none;
+    appearance: none;
+    padding: 0.3rem;
+  }
+
+  input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+
+  input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 0.6rem;
+  }
+
+  input[type="color"]::-moz-color-swatch {
+    border: none;
+    border-radius: 0.6rem;
+  }
+
+  /* ThemeProvider rejimni almashtirayotgan bir kadr davomida o'tish animatsiyalari o'chiriladi
+     (`theme-keep-transition` — almashtirgich ikonkasi kabi ataylab animatsiyali elementlar uchun) */
+  .theme-switching,
+  .theme-switching *:not(.theme-keep-transition),
+  .theme-switching *::before,
+  .theme-switching *::after {
+    transition: none !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background-color: color-mix(in oklab, var(--color-slate-200) 85%, transparent);
+  }
+
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--color-surface) 65%, transparent),
+      transparent
+    );
+    animation: shimmer 1.7s linear infinite;
+  }
+
+  .toast-progress {
+    transform-origin: left center;
+    animation-name: toast-countdown;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+  }
+
+  .auth-backdrop {
+    background-color: #3d247d;
+    background-image:
+      radial-gradient(ellipse 60% 50% at 15% 15%, rgb(127 90 245 / 0.55), transparent),
+      radial-gradient(ellipse 55% 45% at 90% 20%, rgb(56 189 248 / 0.28), transparent),
+      radial-gradient(ellipse 70% 60% at 60% 100%, rgb(232 121 249 / 0.25), transparent),
+      linear-gradient(160deg, #2a1758 0%, #1c1038 100%);
+  }
+
+  .auth-dots {
+    background-image: radial-gradient(rgb(255 255 255 / 0.22) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+

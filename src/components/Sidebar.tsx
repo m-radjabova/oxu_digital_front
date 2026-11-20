@@ -165,6 +165,7 @@ export default function Sidebar({
                 <ul className="grid gap-1">
                   {sectionItems.map(({ path, title, icon: Icon }) => path === 'schedule' && user.role === 'admin' ? (
                     <ScheduleNavigation key={path} collapsed={collapsed} onClose={onClose} />
+
                   ) : path === 'structure' ? (
                     <StructureNavigation key={path} collapsed={collapsed} onClose={onClose} />
                   ) : path === 'subjects' ? (

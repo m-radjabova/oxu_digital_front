@@ -34,6 +34,7 @@ const TITLES: Record<string, string> = {
   'academic-load': 'Akademik soatlar nazorati',
   structure: 'Ta’lim tuzilmasi',
   buildings: 'Binolar va xonalar',
+  rooms: 'Xonalar',
   profile: 'Profil',
   attendance: 'Davomat',
 }

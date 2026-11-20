@@ -1,41 +1,31 @@
 import FilterSelect from '../../components/ui/FilterSelect'
-import CalendarTodayRoundedIcon from '@mui/icons-material/CalendarTodayRounded'
-import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded'
 import LayersRoundedIcon from '@mui/icons-material/LayersRounded'
 import { useCallback, useMemo, useState, type FormEvent } from 'react'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded'
-import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded'
-import ArrowForwardIosRoundedIcon from '@mui/icons-material/ArrowForwardIosRounded'
-import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded'
-import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
-import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded'
-import InfoRoundedIcon from '@mui/icons-material/InfoRounded'
 import MeetingRoomRoundedIcon from '@mui/icons-material/MeetingRoomRounded'
 import PeopleAltRoundedIcon from '@mui/icons-material/PeopleAltRounded'
-import PlaceRoundedIcon from '@mui/icons-material/PlaceRounded'
-import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
-import RemoveRoundedIcon from '@mui/icons-material/RemoveRounded'
+import { useLocation } from 'react-router-dom'
+import Pagination from '../../components/Pagination'
 import { api } from '../../lib/api'
 import useApiResource from '../../hooks/useApiResource'
 import useToast from '../../hooks/useToast'
 import type { Building, Room, RoomKind } from '../../types'
-import { addDays, formatWeekRange, startOfWeek, toDateKey } from '../../utils/date'
+import { startOfWeek, toDateKey } from '../../utils/date'
 import { PERIODS } from '../../utils/periods'
 import PageHeading from '../../components/PageHeading'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
-import Card, { SectionHeader } from '../../components/ui/Card'
+import Card from '../../components/ui/Card'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import EmptyState from '../../components/ui/EmptyState'
 import { FormField } from '../../components/ui/Field'
 import { inputClass, selectClass } from '../../components/ui/fieldStyles'
 import Modal from '../../components/ui/Modal'
 import { Skeleton } from '../../components/ui/Skeleton'
-import { CampusMap, FacadeIllustration } from './CampusIllustrations'
-import { MAP_SLOT_COUNT } from './campusSlots'
+import { FacadeIllustration } from './CampusIllustrations'
 
 const DAYS = [
   { value: 1, label: 'Dushanba' }, { value: 2, label: 'Seshanba' },
@@ -75,13 +65,11 @@ type DeleteTarget =
 
 export default function BuildingsPage() {
   const toast = useToast()
+  const location = useLocation()
   const [weekStart, setWeekStart] = useState(() => toDateKey(startOfWeek(new Date())))
   const [dayOfWeek, setDayOfWeek] = useState(1)
   const [period, setPeriod] = useState(1)
-  const [selectedBuildingId, setSelectedBuildingId] = useState('')
-  const [activeFloorKey, setActiveFloorKey] = useState('')
-  const [isFloorOpen, setIsFloorOpen] = useState(true)
-  const [zoom, setZoom] = useState(1)
+  const [selectedBuildingId, setSelectedBuildingId] = useState(() => new URLSearchParams(location.search).get('building') || '')
   const [buildingValues, setBuildingValues] = useState<BuildingValues>({ name: '', address: '' })
   const [roomValues, setRoomValues] = useState<RoomValues>({
     number: '',
@@ -106,9 +94,6 @@ export default function BuildingsPage() {
     || buildings.find((building) => building.isActive)
     || buildings[0]
   const rooms = useMemo(() => selectedBuilding?.rooms || [], [selectedBuilding])
-  const occupiedCount = rooms.filter((room) => room.isActive && room.occupied).length
-  const freeCount = rooms.filter((room) => room.isActive && !room.occupied).length
-
   const floorGroups = useMemo(() => {
     const map = new Map<number | null, Room[]>()
     for (const room of rooms) {
@@ -124,31 +109,9 @@ export default function BuildingsPage() {
         rooms: list,
       }))
   }, [rooms])
-  const activeFloor = floorGroups.find((group) => group.key === activeFloorKey) || floorGroups[0]
-  const floorCount = floorGroups.filter((group) => group.key !== 'none').length
-
-  const floorFree = activeFloor?.rooms.filter((room) => room.isActive && !room.occupied).length ?? 0
-  const floorBusy = activeFloor?.rooms.filter((room) => room.isActive && room.occupied).length ?? 0
-  const floorOff = activeFloor?.rooms.filter((room) => !room.isActive).length ?? 0
-
   function selectBuilding(id: string) {
     setSelectedBuildingId(id)
-    setActiveFloorKey('')
-    setIsFloorOpen(true)
     cancelRoomEdit()
-  }
-
-  function toggleFloor(key: string) {
-    if (activeFloor?.key === key) {
-      setIsFloorOpen((open) => !open)
-      return
-    }
-    setActiveFloorKey(key)
-    setIsFloorOpen(true)
-  }
-
-  function moveWeek(amount: number) {
-    setWeekStart(toDateKey(addDays(weekStart, amount * 7)))
   }
 
   function openBuildingForm(building?: Building) {
@@ -267,357 +230,41 @@ export default function BuildingsPage() {
     }
   }
 
+  const [buildingSearch, setBuildingSearch] = useState('')
+  const [roomSearch, setRoomSearch] = useState('')
+  const [kindFilter, setKindFilter] = useState('all')
+  const [floorFilter, setFloorFilter] = useState('all')
+  const [roomPage, setRoomPage] = useState(1)
+  const [gridView, setGridView] = useState(false)
+  const filteredRooms = rooms.filter(room => (kindFilter === 'all' || room.kind === kindFilter) && (floorFilter === 'all' || String(room.floor ?? 'none') === floorFilter) && `${room.number} ${ROOM_KIND_LABELS[room.kind]}`.toLocaleLowerCase().includes(roomSearch.toLocaleLowerCase()))
+  const currentPage = Math.min(roomPage, Math.max(1, Math.ceil(filteredRooms.length / 10)))
+  const pageRooms = filteredRooms.slice((currentPage - 1) * 10, currentPage * 10)
+  const allRooms = buildings.flatMap(building => building.rooms)
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-3 pb-5 sm:px-4 lg:px-5 lg:pb-6">
-      <PageHeading
-        eyebrow="Universitet infratuzilmasi"
-        title="Binolar va xonalar"
-        description="Kampus xaritasidan binoni tanlang va tanlangan vaqtda qaysi xonalar bo‘shligini ko‘ring."
-        icon={<ApartmentRoundedIcon />}
-        action={<Badge tone="brand" dot className="h-8 px-3 text-xs">{buildings.length} ta bino</Badge>}
-      />
-
-      {loadError && (
-        <div
-          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"
-          role="alert"
-        >
-          <span className="flex items-center gap-2"><ErrorOutlineRoundedIcon sx={{ fontSize: 18 }} />{loadError}</span>
-          <Button variant="dangerSoft" size="sm" startIcon={<RefreshRoundedIcon sx={{ fontSize: 15 }} />} onClick={() => void refresh()}>
-            Qayta urinish
-          </Button>
-        </div>
-      )}
-
-      {/* Vaqt tanlash paneli */}
-      <Card className="mb-5 p-4 sm:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-          <div className="flex items-center gap-3 lg:w-64 lg:shrink-0">
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100">
-              <CalendarMonthRoundedIcon sx={{ fontSize: 20 }} />
-            </span>
-            <div className="leading-tight">
-              <p className="text-sm font-bold text-slate-900">Bandlik vaqti</p>
-              <p className="mt-0.5 text-xs text-slate-500">Xonalar shu vaqt uchun ko‘rsatiladi</p>
-            </div>
-          </div>
-          <div className="grid flex-1 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,0.8fr)_minmax(0,1fr)]">
-            <input
-              type="date"
-              className={inputClass}
-              aria-label="Bandlik haftasi"
-              value={weekStart}
-              onChange={(event) => setWeekStart(toDateKey(startOfWeek(event.target.value)))}
-            />
-            <div className="flex items-center justify-between gap-1 rounded-xl border border-slate-200 bg-surface p-1">
-              <button type="button" className={`grid size-8 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 ${focusRing}`} aria-label="Oldingi hafta" onClick={() => moveWeek(-1)}>
-                <ArrowBackIosNewRoundedIcon sx={{ fontSize: 13 }} />
-              </button>
-              <span className="px-1 text-xs font-semibold text-slate-600">{formatWeekRange(weekStart, toDateKey(addDays(weekStart, 5)))}</span>
-              <button type="button" className={`grid size-8 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 ${focusRing}`} aria-label="Keyingi hafta" onClick={() => moveWeek(1)}>
-                <ArrowForwardIosRoundedIcon sx={{ fontSize: 13 }} />
-              </button>
-            </div>
-            <FilterSelect icon={<CalendarTodayRoundedIcon />} className={selectClass} aria-label="Hafta kuni" value={dayOfWeek} onChange={(event) => setDayOfWeek(Number(event.target.value))}>
-              {DAYS.map((day) => <option value={day.value} key={day.value}>{day.label}</option>)}
-            </FilterSelect>
-            <FilterSelect icon={<AccessTimeRoundedIcon />} className={selectClass} aria-label="Para" value={period} onChange={(event) => setPeriod(Number(event.target.value))}>
-              {PERIODS.map((item) => <option value={item.number} key={item.number}>{item.number}-para · {item.start}</option>)}
-            </FilterSelect>
-          </div>
-        </div>
-      </Card>
-
-      {/* Asosiy qism: xarita va bino tafsilotlari */}
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(420px,1fr)_minmax(480px,1fr)]">
-        {/* Kampus xaritasi */}
-        <Card className="p-4 sm:p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-brand-500 to-indigo-600 text-white shadow-md shadow-brand-600/25">
-                <PlaceRoundedIcon sx={{ fontSize: 24 }} />
-              </span>
-              <div className="leading-tight">
-                <h2 className="text-lg font-extrabold tracking-tight text-slate-900">Universitet Campus</h2>
-                <p className="mt-0.5 text-sm text-slate-500">Barcha binolar xaritasi</p>
-              </div>
-            </div>
-            <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-slate-50 px-3.5 py-2 text-xs font-semibold text-slate-600 ring-1 ring-inset ring-slate-200/70" aria-label="Belgilar izohi">
-              <li className="inline-flex items-center gap-1.5"><i className="size-2.5 rounded-full bg-emerald-500" />Bo‘sh</li>
-              <li className="inline-flex items-center gap-1.5"><i className="size-2.5 rounded-full bg-orange-400" />Band</li>
-              <li className="inline-flex items-center gap-1.5"><i className="size-2.5 rounded-full bg-slate-300" />Mavjud emas</li>
-            </ul>
-          </div>
-
-          <div className="relative mt-4">
-            {isLoading && !buildings.length ? (
-              <Skeleton className="aspect-[600/520] w-full rounded-2xl" />
-            ) : (
-              <>
-                <CampusMap
-                  buildings={buildings}
-                  selectedId={selectedBuilding?.id || ''}
-                  zoom={zoom}
-                  onSelect={selectBuilding}
-                />
-                {!buildings.length && (
-                  <div className="absolute inset-0 grid place-items-center p-6">
-                    <p className="rounded-2xl bg-surface/95 px-5 py-4 text-center text-sm font-semibold text-slate-700 shadow-lg ring-1 ring-slate-200">
-                      Kampusda hozircha bino yo‘q.
-                      <span className="mt-1 block text-xs font-medium text-slate-500">                      “Boshqaruv” bo‘limidan yangi bino qo‘shing.</span>
-                    </p>
-                  </div>
-                )}
-                <div className="absolute bottom-3 left-3 grid overflow-hidden rounded-xl bg-surface shadow-lg ring-1 ring-slate-200">
-                  <button
-                    type="button"
-                    className={`grid size-10 place-items-center text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 ${focusRing}`}
-                    aria-label="Yaqinlashtirish"
-                    disabled={zoom >= 1.5}
-                    onClick={() => setZoom((current) => Math.min(1.5, +(current + 0.25).toFixed(2)))}
-                  >
-                    <AddRoundedIcon sx={{ fontSize: 20 }} />
-                  </button>
-                  <span className="h-px bg-slate-200" aria-hidden="true" />
-                  <button
-                    type="button"
-                    className={`grid size-10 place-items-center text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 ${focusRing}`}
-                    aria-label="Uzoqlashtirish"
-                    disabled={zoom <= 1}
-                    onClick={() => setZoom((current) => Math.max(1, +(current - 0.25).toFixed(2)))}
-                  >
-                    <RemoveRoundedIcon sx={{ fontSize: 20 }} />
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-
-          {buildings.length > 0 && (
-            <div className="mt-4">
-              <p className="mb-2 text-xs font-semibold text-slate-500">
-                Binolar ro‘yxati
-                {buildings.length > MAP_SLOT_COUNT && ` (xaritada dastlabki ${MAP_SLOT_COUNT} ta ko‘rsatilgan)`}
-              </p>
-              <ul className="flex flex-wrap gap-2">
-                {buildings.map((building) => {
-                  const active = selectedBuilding?.id === building.id
-                  const free = building.rooms.filter((room) => room.isActive && !room.occupied).length
-                  return (
-                    <li key={building.id}>
-                      <button
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => selectBuilding(building.id)}
-                        className={`inline-flex items-center gap-2 rounded-full py-1.5 pl-3 pr-1.5 text-sm font-semibold transition ${focusRing} ${
-                          active
-                            ? 'bg-brand-600 text-white shadow-md shadow-brand-600/25'
-                            : 'bg-slate-50 text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-surface hover:ring-slate-300'
-                        }`}
-                      >
-                        {building.name}
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${active ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
-                          {free} bo‘sh
-                        </span>
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
-          )}
+    <div className="mx-auto w-full max-w-[1800px] px-3 pb-8 sm:px-5">
+      <PageHeading eyebrow="Universitet infratuzilmasi" title="Binolar va xonalar" description="Universitet binolari va ulardagi xonalarni boshqaring." icon={<ApartmentRoundedIcon />} />
+      {loadError && <div role="alert" className="mb-4 flex items-center justify-between rounded-xl bg-rose-50 p-4 text-sm text-rose-700">{loadError}<Button variant="ghost" onClick={() => void refresh()}>Qayta urinish</Button></div>}
+      <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4">{[
+        { label: 'Jami bino', value: buildings.length, icon: <ApartmentRoundedIcon />, tone: 'bg-violet-100 text-violet-600' },
+        { label: 'Jami xona', value: allRooms.length, icon: <MeetingRoomRoundedIcon />, tone: 'bg-emerald-100 text-emerald-600' },
+        { label: 'O‘quv xonasi', value: allRooms.filter(room => room.kind !== 'multi').length, icon: <PeopleAltRoundedIcon />, tone: 'bg-blue-100 text-blue-600' },
+        { label: 'Universal xona', value: allRooms.filter(room => room.kind === 'multi').length, icon: <LayersRoundedIcon />, tone: 'bg-orange-100 text-orange-600' },
+      ].map(stat => <Card key={stat.label} className="flex items-center gap-3 p-4"><span className={`grid size-12 shrink-0 place-items-center rounded-xl ${stat.tone}`}>{stat.icon}</span><div>{isLoading && !buildings.length ? <Skeleton className="h-7 w-12" /> : <b className="text-2xl text-slate-900">{stat.value}</b>}<p className="text-xs text-slate-500">{stat.label}</p></div></Card>)}</div>
+      <div className="grid items-start gap-5 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[330px_minmax(0,1fr)]">
+        <Card className="p-4"><div className="mb-4 flex items-center justify-between gap-2"><h2 className="text-lg font-bold text-slate-900">Binolar ({buildings.length})</h2><Button size="sm" startIcon={<AddRoundedIcon />} onClick={() => openBuildingForm()}>Yangi bino</Button></div>
+          <input className={inputClass} aria-label="Bino nomini qidirish" placeholder="Bino nomini qidirish..." value={buildingSearch} onChange={event => setBuildingSearch(event.target.value)} />
+          <div className="mt-4 max-h-[760px] space-y-3 overflow-y-auto">{isLoading && !buildings.length ? Array.from({length: 4}, (_, i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />) : buildings.filter(building => building.name.toLocaleLowerCase().includes(buildingSearch.toLocaleLowerCase())).map(building => <button key={building.id} type="button" aria-pressed={selectedBuilding?.id === building.id} onClick={() => { selectBuilding(building.id); setRoomPage(1); setFloorFilter('all') }} className={`flex w-full items-center gap-3 rounded-xl border p-2.5 text-left transition ${selectedBuilding?.id === building.id ? 'border-brand-400 bg-brand-50 ring-1 ring-brand-200' : 'border-slate-100 hover:border-brand-200'}`}><div className="w-24 shrink-0 overflow-hidden rounded-lg bg-sky-50"><FacadeIllustration /></div><div className="min-w-0 flex-1"><h3 className="break-words font-bold text-slate-900">{building.name}</h3><p className="mt-1 truncate text-xs text-slate-500">{building.address || 'Manzil kiritilmagan'}</p><div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600"><span>{building.rooms.length} xona</span><Badge tone={building.isActive ? 'success' : 'neutral'}>{building.isActive ? 'Faol' : 'Nofaol'}</Badge></div></div></button>)}</div>
+          {!isLoading && !buildings.length && <EmptyState title="Binolar mavjud emas" description="Yangi bino qo‘shishdan boshlang." />}
         </Card>
-
-        {/* Bino tafsilotlari */}
-        <Card className="overflow-hidden p-4 sm:p-5">
-          {isLoading && !buildings.length ? (
-            <div className="grid gap-4" role="status" aria-label="Bino ma’lumotlari yuklanmoqda">
-              <div className="flex gap-4">
-                <Skeleton className="h-32 w-44 shrink-0 rounded-2xl" />
-                <div className="flex-1 space-y-3">
-                  <Skeleton className="h-6 w-32" />
-                  <Skeleton className="h-4 w-48 max-w-full" />
-                  <Skeleton className="h-8 w-28 rounded-full" />
-                </div>
-              </div>
-              <Skeleton className="h-12 w-full rounded-2xl" />
-              <div className="grid grid-cols-3 gap-3">
-                {Array.from({ length: 6 }, (_, index) => <Skeleton className="h-28 rounded-2xl" key={index} />)}
-              </div>
-            </div>
-          ) : !selectedBuilding ? (
-            <EmptyState icon={<ApartmentRoundedIcon />} title="Bino tanlanmagan" description="Xonalar ro‘yxatini ko‘rish uchun bino qo‘shing yoki xaritadan tanlang." />
-          ) : (
-            <>
-              <div className="flex flex-col gap-4 sm:flex-row">
-                <div className="aspect-[240/168] w-full shrink-0 overflow-hidden rounded-2xl ring-1 ring-slate-200/70 sm:w-52">
-                  <FacadeIllustration />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h2 className="truncate text-2xl font-extrabold tracking-tight text-slate-900">{selectedBuilding.name}</h2>
-                      <p className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-500">
-                        <PlaceRoundedIcon sx={{ fontSize: 16 }} className="shrink-0 text-brand-500" />
-                        <span className="truncate">{selectedBuilding.address || 'Manzil kiritilmagan'}</span>
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 gap-1">
-                      <button
-                        type="button"
-                        className={`grid size-9 place-items-center rounded-xl text-slate-500 transition hover:bg-brand-50 hover:text-brand-700 ${focusRing}`}
-                        aria-label={`${selectedBuilding.name} binosini tahrirlash`}
-                        onClick={() => startBuildingEdit(selectedBuilding)}
-                      >
-                        <EditRoundedIcon sx={{ fontSize: 18 }} />
-                      </button>
-                      <button
-                        type="button"
-                        className={`grid size-9 place-items-center rounded-xl text-rose-500 transition hover:bg-rose-50 ${focusRing}`}
-                        aria-label={`${selectedBuilding.name} binosini o‘chirish`}
-                        onClick={() => setDeleteTarget({ type: 'building', id: selectedBuilding.id, name: selectedBuilding.name })}
-                      >
-                        <DeleteOutlineRoundedIcon sx={{ fontSize: 18 }} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {floorCount > 0 && (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1.5 text-sm font-bold text-brand-700 ring-1 ring-inset ring-brand-100">
-                        <ApartmentRoundedIcon sx={{ fontSize: 16 }} />
-                        {floorCount} qavat
-                      </span>
-                    )}
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">
-                      <MeetingRoomRoundedIcon sx={{ fontSize: 16 }} />
-                      {rooms.length} xona
-                    </span>
-                    {!selectedBuilding.isActive && <Badge tone="neutral">Nofaol</Badge>}
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Badge tone="success">{freeCount} bo‘sh</Badge>
-                    <Badge tone={occupiedCount ? 'warning' : 'neutral'}>{occupiedCount} band</Badge>
-                  </div>
-                </div>
-              </div>
-
-              {rooms.length ? (
-                <>
-                  {/* Qavatlar */}
-                  <div
-                    className="mt-5 flex gap-2 overflow-x-auto rounded-2xl bg-slate-50 p-2 ring-1 ring-inset ring-slate-200/60 [scrollbar-width:thin]"
-                    role="group"
-                    aria-label="Qavatlar"
-                  >
-                    {floorGroups.map((group) => {
-                      const active = activeFloor?.key === group.key
-                      return (
-                        <button
-                          key={group.key}
-                          type="button"
-                          aria-expanded={active && isFloorOpen}
-                          aria-controls={active ? `floor-rooms-${selectedBuilding.id}-${group.key}` : undefined}
-                          onClick={() => toggleFloor(group.key)}
-                          className={`shrink-0 rounded-xl px-4 py-2 text-sm font-semibold transition ${focusRing} ${
-                            active
-                              ? 'bg-brand-600 text-white shadow-md shadow-brand-600/25'
-                              : 'text-slate-600 hover:bg-surface hover:text-slate-900'
-                          }`}
-                        >
-                          {group.label}
-                          <KeyboardArrowDownRoundedIcon
-                            sx={{ fontSize: 18 }}
-                            className={`ml-1 inline-block transition-transform duration-200 ${active && isFloorOpen ? 'rotate-180' : ''}`}
-                          />
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  {/* Xonalar */}
-                  {activeFloor && (
-                    <div
-                      id={`floor-rooms-${selectedBuilding.id}-${activeFloor.key}`}
-                      className={isFloorOpen ? 'animate-fade-in' : ''}
-                      role="region"
-                      aria-label={activeFloor.title}
-                      hidden={!isFloorOpen}
-                    >
-                      <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                        {activeFloor.rooms.map((room) => (
-                          <li key={room.id}>
-                            <RoomTile
-                              room={room}
-                              onEdit={() => startRoomEdit(room)}
-                              onDelete={() => setDeleteTarget({ type: 'room', id: room.id, name: `${selectedBuilding.name} ${room.number}-xona` })}
-                            />
-                          </li>
-                        ))}
-                      </ul>
-
-                      <div className="mt-4 flex items-start gap-3 rounded-2xl bg-brand-50/70 p-4 ring-1 ring-inset ring-brand-100">
-                        <InfoRoundedIcon sx={{ fontSize: 22 }} className="mt-0.5 shrink-0 text-brand-600" />
-                        <div className="text-sm leading-6">
-                          <p className="font-bold text-slate-900">{activeFloor.title} jami: {activeFloor.rooms.length} ta xona</p>
-                          <p className="text-slate-600">
-                            Shundan {floorFree} tasi bo‘sh, {floorBusy} tasi band, {floorOff} tasi mavjud emas
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="mt-5">
-                  <EmptyState icon={<MeetingRoomRoundedIcon />} title="Bu binoda xona yo‘q" description="Boshqaruv bo‘limidan xona raqami, turi va sig‘imini qo‘shing." />
-                </div>
-              )}
-            </>
-          )}
+        <Card className="min-w-0 overflow-hidden p-4 sm:p-5">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-3"><ApartmentRoundedIcon className="text-brand-600" sx={{ fontSize: 32 }} /><div><h2 className="text-lg font-bold text-slate-900">{selectedBuilding ? `${selectedBuilding.name} xonalari (${rooms.length})` : 'Xonalar'}</h2><p className="mt-1 text-xs text-slate-500">{selectedBuilding?.address || 'Binoni chapdagi ro‘yxatdan tanlang'}</p></div></div><div className="flex gap-2"><Button variant="secondary" size="sm" disabled={!selectedBuilding} startIcon={<EditRoundedIcon />} onClick={() => selectedBuilding && startBuildingEdit(selectedBuilding)}>Bino ma’lumotlari</Button><Button size="sm" disabled={!selectedBuilding} startIcon={<AddRoundedIcon />} onClick={() => openRoomForm()}>Yangi xona</Button><Button variant="dangerSoft" size="sm" disabled={!selectedBuilding} aria-label="Binoni o‘chirish" onClick={() => selectedBuilding && setDeleteTarget({ type: 'building', id: selectedBuilding.id, name: selectedBuilding.name })}><DeleteOutlineRoundedIcon sx={{fontSize:18}} /></Button></div></div>
+          <div className="mb-4 flex flex-wrap gap-2">{[['all', 'Barcha xonalar'], ...Object.entries(ROOM_KIND_LABELS)].map(([kind, label]) => <button type="button" key={kind} onClick={() => { setKindFilter(kind); setRoomPage(1) }} aria-pressed={kindFilter === kind} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${kindFilter === kind ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-200 text-slate-600 hover:bg-brand-50'}`}>{label} ({kind === 'all' ? rooms.length : rooms.filter(room => room.kind === kind).length})</button>)}</div>
+          <div className="mb-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px_auto]"><input className={inputClass} aria-label="Xona qidirish" placeholder="Xona raqami yoki turi bo‘yicha qidirish..." value={roomSearch} onChange={event => { setRoomSearch(event.target.value); setRoomPage(1) }} /><FilterSelect aria-label="Qavat" icon={<LayersRoundedIcon />} className={selectClass} value={floorFilter} onChange={event => { setFloorFilter(event.target.value); setRoomPage(1) }}><option value="all">Barcha qavatlar</option>{floorGroups.map(floor => <option key={floor.key} value={floor.key}>{floor.label}</option>)}</FilterSelect><Button variant="secondary" onClick={() => setGridView(!gridView)}>{gridView ? 'Jadval' : 'Kartalar'}</Button></div>
+          <details className="mb-4 rounded-xl border border-slate-200 p-3"><summary className="cursor-pointer text-xs font-semibold text-slate-600">Bandlik vaqti · {DAYS.find(day => day.value === dayOfWeek)?.label}, {period}-para</summary><div className="mt-3 grid gap-3 sm:grid-cols-3"><input type="date" aria-label="Bandlik haftasi" className={inputClass} value={weekStart} onChange={event => { if(event.target.value) setWeekStart(toDateKey(startOfWeek(event.target.value))) }} /><FilterSelect aria-label="Kun" value={dayOfWeek} onChange={event => setDayOfWeek(Number(event.target.value))}>{DAYS.map(day => <option key={day.value} value={day.value}>{day.label}</option>)}</FilterSelect><FilterSelect aria-label="Para" value={period} onChange={event => setPeriod(Number(event.target.value))}>{PERIODS.map(item => <option key={item.number} value={item.number}>{item.number}-para · {item.start}</option>)}</FilterSelect></div></details>
+          {isLoading ? <div role="status" aria-label="Xonalar yuklanmoqda" className="space-y-3">{Array.from({length: 6}, (_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div> : !pageRooms.length ? <EmptyState icon={<MeetingRoomRoundedIcon />} title="Xonalar topilmadi" description="Qidiruv va filtrlarni o‘zgartiring yoki yangi xona qo‘shing." /> : gridView ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{pageRooms.map(room => <RoomTile key={room.id} room={room} onEdit={() => startRoomEdit(room)} onDelete={() => setDeleteTarget({type: 'room', id: room.id, name: room.number})} />)}</div> : <div className="overflow-x-auto"><table className="w-full min-w-[650px] text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr>{['Xona №', 'Turi', 'Sig‘im', 'Qavat', 'Holat', 'Amallar'].map(label => <th key={label} className="px-3 py-3 font-semibold">{label}</th>)}</tr></thead><tbody>{pageRooms.map(room => <tr key={room.id} className="border-b border-slate-100 even:bg-slate-50/50"><td className="px-3 py-3 font-bold text-slate-900">{room.number}</td><td className="px-3 py-3"><span className="rounded-md bg-brand-50 px-2 py-1 text-xs font-semibold text-brand-700">{ROOM_KIND_LABELS[room.kind]}</span></td><td className="px-3 py-3 text-slate-600">{room.capacity} o‘rin</td><td className="px-3 py-3 text-slate-600">{room.floor ? `${room.floor}-qavat` : 'Belgilanmagan'}</td><td className="px-3 py-3"><Badge tone={!room.isActive ? 'neutral' : room.occupied ? 'warning' : 'success'}>{!room.isActive ? 'Nofaol' : room.occupied ? 'Band' : 'Bo‘sh'}</Badge></td><td className="px-3 py-3"><div className="flex gap-1"><button aria-label={`${room.number}-xonani tahrirlash`} className="rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:text-brand-600" onClick={() => startRoomEdit(room)}><EditRoundedIcon sx={{fontSize:17}} /></button><button aria-label={`${room.number}-xonani o‘chirish`} className="rounded-lg border border-slate-200 p-1.5 text-rose-500" onClick={() => setDeleteTarget({type: 'room', id: room.id, name: room.number})}><DeleteOutlineRoundedIcon sx={{fontSize:17}} /></button></div></td></tr>)}</tbody></table></div>}
+          <div className="mt-4"><Pagination page={currentPage} totalPages={Math.max(1, Math.ceil(filteredRooms.length / 10))} total={filteredRooms.length} limit={10} onPageChange={setRoomPage} /></div>
         </Card>
       </div>
-
-      {/* Boshqaruv */}
-      <div className="mt-8">
-        <div className="mb-4 flex items-center gap-3">
-          <h2 className="text-lg font-extrabold tracking-tight text-slate-900">Boshqaruv</h2>
-          <span className="h-px flex-1 bg-gradient-to-r from-slate-200 to-transparent" aria-hidden="true" />
-        </div>
-        <div className="grid items-start gap-5 lg:grid-cols-2">
-          <Card className="p-3 sm:p-4">
-            <SectionHeader
-              icon={<ApartmentRoundedIcon sx={{ fontSize: 18 }} />}
-              title="Bino qo‘shish"
-              description="Yangi bino nomi va manzilini kiriting."
-            />
-            <Button className="mt-5" fullWidth startIcon={<AddRoundedIcon sx={{ fontSize: 17 }} />} onClick={() => openBuildingForm()}>
-              Bino qo‘shish
-            </Button>
-          </Card>
-
-          <Card className="p-3 sm:p-4">
-            <SectionHeader
-              icon={<MeetingRoomRoundedIcon sx={{ fontSize: 18 }} />}
-              title="Xona qo‘shish"
-              description={selectedBuilding
-                ? `${selectedBuilding.name} binosiga yangi xona kiriting.`
-                : 'Xona qo‘shish uchun avval bino yarating yoki xaritadan tanlang.'}
-            />
-            <Button
-              className="mt-5"
-              fullWidth
-              disabled={!selectedBuilding}
-              startIcon={<AddRoundedIcon sx={{ fontSize: 17 }} />}
-              onClick={() => openRoomForm()}
-            >
-              Xona qo‘shish
-            </Button>
-          </Card>
-        </div>
-      </div>
-
       <Modal
         open={formDialog !== null}
         onClose={closeFormDialog}

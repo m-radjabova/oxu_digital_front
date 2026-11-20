@@ -79,6 +79,7 @@ export default function App() {
                 <Route path="academic-load" element={<AcademicLoadPage />} />
                 <Route path="structure" element={<StructurePage />} />
                 <Route path="buildings" element={<BuildingsPage />} />
+                <Route path="rooms" element={<Navigate to="/admin/buildings" replace />} />
                 <Route path="profile" element={<ProfilePage />} />
               </Route>
             </Route>
